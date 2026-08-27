@@ -991,7 +991,10 @@ function renderInputScreen(){
   const isIn = state.mode==='in';
   const chips = isIn ? INBOUND_CHIPS : OUTBOUND_CHIPS;
   const leadBlock = isIn
-    ? `<div class="lead">부모님께 받은 카톡을 그대로 붙여넣어 주세요.</div>`
+    ? `<div class="lead-hero-card">
+        <div class="lead-hero-line1">내 마음 몰라주시는 것 같아 속상하셨나요?</div>
+        <div class="lead-hero-line2">부모님 진심을 엄마마음이 읽어드릴게요.</div>
+      </div>`
     : `<div class="lead-hero-card">
         <div class="lead-hero-line1">부모님께 못 한 말이 있나요?</div>
         <div class="lead-hero-line2">메세지는 엄마마음이 써드릴게요.</div>
