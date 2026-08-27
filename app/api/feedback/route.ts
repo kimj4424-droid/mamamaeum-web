@@ -1,8 +1,11 @@
 export async function POST(req: Request) {
-  const webhookUrl = process.env.FEEDBACK_SHEET_WEBHOOK_URL;
-  if (!webhookUrl) {
+  const formUrl = process.env.GOOGLE_FORM_RESPONSE_URL;
+  const entryCategory = process.env.GOOGLE_FORM_ENTRY_CATEGORY;
+  const entryMessage = process.env.GOOGLE_FORM_ENTRY_MESSAGE;
+  const entryContact = process.env.GOOGLE_FORM_ENTRY_CONTACT;
+  if (!formUrl || !entryCategory || !entryMessage || !entryContact) {
     return Response.json(
-      { error: "FEEDBACK_SHEET_WEBHOOK_URL이 서버에 설정되어 있지 않습니다." },
+      { error: "구글 폼 연동 환경변수가 설정되어 있지 않습니다." },
       { status: 500 }
     );
   }
@@ -12,18 +15,15 @@ export async function POST(req: Request) {
     return Response.json({ error: "message가 필요합니다." }, { status: 400 });
   }
 
-  const payload = {
-    timestamp: new Date().toISOString(),
-    category: typeof category === "string" ? category : "",
-    message: message.slice(0, 2000),
-    contact: typeof contact === "string" ? contact.slice(0, 200) : "",
-    userAgent: req.headers.get("user-agent") || "",
-  };
+  const body = new URLSearchParams();
+  body.set(`entry.${entryCategory}`, typeof category === "string" ? category : "");
+  body.set(`entry.${entryMessage}`, message.slice(0, 2000));
+  body.set(`entry.${entryContact}`, typeof contact === "string" ? contact.slice(0, 200) : "");
 
-  const upstream = await fetch(webhookUrl, {
+  const upstream = await fetch(formUrl, {
     method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(payload),
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: body.toString(),
   });
 
   if (!upstream.ok) {
