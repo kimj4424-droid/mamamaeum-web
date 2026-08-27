@@ -486,8 +486,8 @@
     <div class="tagline">부모님과 나 사이, 보낼 수 있는 문장으로</div>
   </div>
   <div class="tabs">
-    <button class="tab-btn" id="tab-in" onclick="switchMode('in')">받은 메시지</button>
     <button class="tab-btn" id="tab-out" onclick="switchMode('out')">하고 싶은 말</button>
+    <button class="tab-btn" id="tab-in" onclick="switchMode('in')">받은 메시지</button>
     <button class="tab-btn" id="tab-feedback" onclick="switchMode('feedback')">피드백</button>
   </div>
   <div id="screen-root"></div>
@@ -506,7 +506,7 @@ const REGEN_TIMEOUT_MS = 12000;
    상태
 ============================================================ */
 const state = {
-  mode: 'in',            // 'in' | 'out' | 'feedback'
+  mode: 'out',           // 'in' | 'out' | 'feedback'
   screen: 'input',        // 'input' | 'measure' | 'loading' | 'result' | 'refusal' | 'safety' | 'feedback'
   inputText: '',
   truncated: false,
@@ -544,28 +544,16 @@ function findSafetyCategory(text){
    예시 칩
 ============================================================ */
 const INBOUND_CHIPS = [
-  {text:'이번 주일에 교회 같이 가자고 몇 번을 말했는데 왜 대답이 없니. 너희 큰아빠도 요즘 다시 나가시는데 너만 안 나가면 엄마 마음이 너무 안 좋아. 하나님이 다 보고 계신다는 것만 명심해라.',
-   note:'가치관이 걸린 메시지라 AI가 스스로 해석을 거부하는지 확인하는 예시예요.'},
   {text:'이번 주말에 큰집 제사인데 너는 온다는 건지 안 온다는 건지 말을 안 하는구나. 작년에도 너 혼자 안 와서 친척들이 다 물어보고 갔다. 이번엔 꼭 얼굴 좀 비춰라.',
    note:'"이건 어때요"가 참석 대신 다른 대안을 주는지 확인하는 예시예요.'},
   {text:'요즘 왜 이렇게 연락이 없니. 전화도 안 받고 톡도 씹고, 무슨 일 있는 건 아니지? 옆집 아들은 매일 전화한다더라, 너도 좀 그렇게 하면 안 되겠니.',
-   note:'비교에 동의하지 않고, 사과 없이 답장하는지 확인하는 예시예요.'},
-  {text:'위키독스 무료 서적 5종을 제작하였습니다. GPT와 Codex, Claude, AI 영상 제작 등에 관한 자료를 공개하였으니 많은 관심 부탁드립니다.',
-   note:'단순 정보 공유에 없는 감정을 지어내 붙이지 않는지 확인하는 예시예요.'},
-  {text:'오늘 엄마랑 있는데 시간 되는 아들 전화 통화하자꾸나. 월요일부터 출근이라 토요일 휴무.',
-   note:'여러 문장에 흩어진 의도를 묶고, 날짜를 임의로 확정하지 않는지 확인하는 예시예요.'}
+   note:'비교에 동의하지 않고, 사과 없이 답장하는지 확인하는 예시예요.'}
 ];
 const OUTBOUND_CHIPS = [
   {text:'용돈 얘기 그만 좀 하셨으면 좋겠어요. 저도 빠듯해요.',
    note:'다듬는 과정에서 요구 자체가 흐려지지 않는지 확인하는 예시예요.'},
-  {text:'결혼 얘기 진짜 그만했으면 좋겠는데 말을 못 하겠어',
-   note:'사과나 자책 표현이 섞이지 않는지 확인하는 예시예요.'},
-  {text:'이번 명절에 못 간다고 해야 하는데 뭐라고 하지',
-   note:'없는 날짜나 대안 일정을 만들어내지 않는지 확인하는 예시예요.'},
   {text:'취업 얘기 좀 그만 물어봤으면 좋겠어. 나도 나름대로 열심히 하고 있는데 자꾸 물어보면 더 초조해져',
-   note:'감정은 살리되 죄책감을 유발하는 표현 없이 다듬는지 확인하는 예시예요.'},
-  {text:'아빠가 또 술 마시고 돈 달라고 소리 지르는데 이제 진짜 지긋지긋해',
-   note:'위험 신호가 감지되면 다듬지 않고 안전 카드로 넘어가는지 확인하는 예시예요.'}
+   note:'감정은 살리되 죄책감을 유발하는 표현 없이 다듬는지 확인하는 예시예요.'}
 ];
 
 /* ============================================================
@@ -992,6 +980,8 @@ function renderInputScreen(){
     <textarea class="msg-input" id="msg-input" placeholder="${placeholder}">${escapeHtml(state.inputText)}</textarea>
     <div class="char-counter" id="char-counter"></div>
     <div class="privacy-line">${privacy}</div>
+    <button class="primary-btn" id="primary-btn">${btnLabel}</button>
+    <div id="input-error" class="error-hint"></div>
     <div class="example-heading">예시로 눌러보기</div>
     <div class="example-list">
       ${chips.map((c,i)=>`<button class="example-item${isIn?'':' out'}" onclick="useChip(${i})">
@@ -999,8 +989,6 @@ function renderInputScreen(){
         <div class="ex-note">${escapeHtml(c.note)}</div>
       </button>`).join('')}
     </div>
-    <button class="primary-btn" id="primary-btn">${btnLabel}</button>
-    <div id="input-error" class="error-hint"></div>
   `;
   const ta = document.getElementById('msg-input');
   const counter = document.getElementById('char-counter');
