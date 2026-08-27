@@ -105,7 +105,30 @@
     background:var(--room-bg);
   }
   .lead{font-size:14.5px;line-height:1.6;color:var(--text-main);}
-  .lead-hero{font-size:17px;font-weight:800;line-height:1.5;letter-spacing:-0.01em;}
+  .lead-hero-card{
+    background:linear-gradient(160deg,#FFF6EA 0%,#FCEEE0 100%);
+    border-radius:26px;
+    padding:17px 12px 16px;
+    box-shadow:0 4px 16px rgba(200,150,90,0.14);
+    display:flex;
+    flex-direction:column;
+    gap:9px;
+    text-align:center;
+  }
+  .lead-hero-line1{
+    font-size:13.5px;
+    font-weight:500;
+    color:#B08A5A;
+    line-height:1.6;
+    letter-spacing:0.01em;
+  }
+  .lead-hero-line2{
+    font-size:19px;
+    font-weight:700;
+    color:#5C4A34;
+    line-height:1.55;
+    letter-spacing:-0.005em;
+  }
   textarea.msg-input{
     width:100%;
     min-height:130px;
@@ -967,9 +990,12 @@ function renderFeedbackScreen(){
 function renderInputScreen(){
   const isIn = state.mode==='in';
   const chips = isIn ? INBOUND_CHIPS : OUTBOUND_CHIPS;
-  const lead = isIn
-    ? '부모님께 받은 카톡을 그대로 붙여넣어 주세요.'
-    : '부모님께 하고 싶은데 못 한 말을 그냥 쏟아내 보세요.<br>생각 정리는 엄마마음이 도와드릴게요.';
+  const leadBlock = isIn
+    ? `<div class="lead">부모님께 받은 카톡을 그대로 붙여넣어 주세요.</div>`
+    : `<div class="lead-hero-card">
+        <div class="lead-hero-line1">부모님께 못 한 말이 있나요?</div>
+        <div class="lead-hero-line2">메세지는 엄마마음이 써드릴게요.</div>
+      </div>`;
   const placeholder = isIn ? '여기에 부모님 메시지를 붙여넣어 주세요' : '정리 안 된 채로 괜찮아요. 욕이 섞여도 돼요.';
   const btnLabel = isIn ? '읽어보기' : '보낼 수 있게 다듬기';
   const privacy = isIn
@@ -977,7 +1003,7 @@ function renderInputScreen(){
     : '정리 안 된 채로 괜찮아요. 저장하지 않습니다.';
 
   root.innerHTML = `
-    <div class="lead${isIn?'':' lead-hero'}">${lead}</div>
+    ${leadBlock}
     <textarea class="msg-input" id="msg-input" placeholder="${placeholder}">${escapeHtml(state.inputText)}</textarea>
     <div class="char-counter" id="char-counter"></div>
     <div class="privacy-line">${privacy}</div>
