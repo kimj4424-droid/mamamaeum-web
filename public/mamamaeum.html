@@ -105,6 +105,7 @@
     background:var(--room-bg);
   }
   .lead{font-size:14.5px;line-height:1.6;color:var(--text-main);}
+  .lead-hero{font-size:17px;font-weight:800;line-height:1.5;letter-spacing:-0.01em;}
   textarea.msg-input{
     width:100%;
     min-height:130px;
@@ -968,7 +969,7 @@ function renderInputScreen(){
   const chips = isIn ? INBOUND_CHIPS : OUTBOUND_CHIPS;
   const lead = isIn
     ? '부모님께 받은 카톡을 그대로 붙여넣어 주세요.'
-    : '부모님께 하고 싶은데 못 한 말을 그냥 쏟아내 보세요.';
+    : '부모님께 하고 싶은데 못 한 말을 그냥 쏟아내 보세요.<br>생각 정리는 엄마마음이 도와드릴게요.';
   const placeholder = isIn ? '여기에 부모님 메시지를 붙여넣어 주세요' : '정리 안 된 채로 괜찮아요. 욕이 섞여도 돼요.';
   const btnLabel = isIn ? '읽어보기' : '보낼 수 있게 다듬기';
   const privacy = isIn
@@ -976,7 +977,7 @@ function renderInputScreen(){
     : '정리 안 된 채로 괜찮아요. 저장하지 않습니다.';
 
   root.innerHTML = `
-    <div class="lead">${lead}</div>
+    <div class="lead${isIn?'':' lead-hero'}">${lead}</div>
     <textarea class="msg-input" id="msg-input" placeholder="${placeholder}">${escapeHtml(state.inputText)}</textarea>
     <div class="char-counter" id="char-counter"></div>
     <div class="privacy-line">${privacy}</div>
