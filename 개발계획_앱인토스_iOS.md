@@ -13,9 +13,10 @@
 - [ ] Vercel 전역 요청 제한 및 모니터링 설정
 
 ## 2단계 — 앱인토스 출시
-- React/TypeScript와 Apps in Toss Web Framework 2.x로 화면 이식
-- 토스 내비게이션, Safe Area, 클립보드 권한 적용
-- 샌드박스·실기기 테스트 후 비게임 검수 제출
+- [x] React/TypeScript와 Apps in Toss Web Framework 3.3 기반 WebView 번들 생성
+- [x] 토스 내비게이션, Safe Area, 클립보드 읽기·쓰기 권한 선언
+- [ ] Vercel API의 안전한 CORS 허용 출처 확정 및 샌드박스 실제 호출 검증
+- [ ] 앱인토스 콘솔 appName 대조, 샌드박스·실기기 테스트, 비게임 검수 제출
 
 ## 3단계 — iOS 앱스토어 출시
 - SwiftUI 앱과 공통 API 클라이언트 구현
