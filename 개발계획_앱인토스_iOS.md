@@ -9,7 +9,8 @@
 - [x] 입력 원문 비저장 정책과 AI 처리 동의 화면
 - [x] 공개 개인정보 처리방침
 - [ ] Vercel 환경변수와 실제 API 호출 확인
-- [ ] 요청량 제한 및 모니터링 설정
+- [x] 서버 인스턴스 단위 요청량 제한
+- [ ] Vercel 전역 요청 제한 및 모니터링 설정
 
 ## 2단계 — 앱인토스 출시
 - React/TypeScript와 Apps in Toss Web Framework 2.x로 화면 이식

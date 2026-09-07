@@ -1,14 +1,23 @@
+import { enforceRequestLimit } from "../../lib/request-limit";
+
 const ANTHROPIC_MODEL = "claude-sonnet-5";
-const MAX_MESSAGE_BYTES = 30_000;
+const MAX_MESSAGE_CHARS = 30_000;
 const MAX_MESSAGES = 16;
+const noStoreHeaders: Record<string, string> = { "Cache-Control": "no-store" };
 
-const noStoreHeaders = { "Cache-Control": "no-store" };
-
-function error(message: string, status: number) {
-  return Response.json({ error: message }, { status, headers: noStoreHeaders });
+function error(message: string, status: number, headers: HeadersInit = noStoreHeaders) {
+  return Response.json({ error: message }, { status, headers });
 }
 
 export async function POST(req: Request) {
+  const retryAfter = enforceRequestLimit(req, "translate", 12, 10 * 60_000);
+  if (retryAfter) {
+    return error("요청이 너무 많습니다. 잠시 후 다시 시도해주세요.", 429, {
+      ...noStoreHeaders,
+      "Retry-After": String(retryAfter),
+    });
+  }
+
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return error("AI 처리 설정이 준비되지 않았습니다.", 503);
 
@@ -26,7 +35,7 @@ export async function POST(req: Request) {
   if (
     messages.length === 0 ||
     messages.length > MAX_MESSAGES ||
-    JSON.stringify(messages).length > MAX_MESSAGE_BYTES
+    JSON.stringify(messages).length > MAX_MESSAGE_CHARS
   ) {
     return error("입력 메시지가 너무 깁니다.", 413);
   }
