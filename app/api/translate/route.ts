@@ -1,43 +1,49 @@
+import { corsHeaders, isAllowedCorsOrigin } from "../../lib/cors";
 import { enforceRequestLimit } from "../../lib/request-limit";
 
 const ANTHROPIC_MODEL = "claude-sonnet-5";
 const MAX_MESSAGE_CHARS = 30_000;
 const MAX_MESSAGES = 16;
-const noStoreHeaders: Record<string, string> = { "Cache-Control": "no-store" };
 
-function error(message: string, status: number, headers: HeadersInit = noStoreHeaders) {
+function error(request: Request, message: string, status: number, headers = corsHeaders(request)) {
   return Response.json({ error: message }, { status, headers });
 }
 
+export function OPTIONS(request: Request) {
+  if (!isAllowedCorsOrigin(request)) return error(request, "허용되지 않은 Origin입니다.", 403);
+  return new Response(null, { status: 204, headers: corsHeaders(request) });
+}
+
 export async function POST(req: Request) {
+  const headers = corsHeaders(req);
   const retryAfter = enforceRequestLimit(req, "translate", 12, 10 * 60_000);
   if (retryAfter) {
-    return error("요청이 너무 많습니다. 잠시 후 다시 시도해주세요.", 429, {
-      ...noStoreHeaders,
+    return error(req, "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.", 429, {
+      ...headers,
       "Retry-After": String(retryAfter),
     });
   }
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return error("AI 처리 설정이 준비되지 않았습니다.", 503);
+  if (!apiKey) return error(req, "AI 처리 설정이 준비되지 않았습니다.", 503, headers);
 
   let payload: { system?: unknown; messages?: unknown; max_tokens?: unknown };
   try {
     payload = await req.json();
   } catch {
-    return error("요청 형식이 올바르지 않습니다.", 400);
+    return error(req, "요청 형식이 올바르지 않습니다.", 400, headers);
   }
 
   const { system, messages, max_tokens } = payload;
   if (typeof system !== "string" || !Array.isArray(messages)) {
-    return error("system과 messages가 필요합니다.", 400);
+    return error(req, "system과 messages가 필요합니다.", 400, headers);
   }
   if (
     messages.length === 0 ||
     messages.length > MAX_MESSAGES ||
     JSON.stringify(messages).length > MAX_MESSAGE_CHARS
   ) {
-    return error("입력 메시지가 너무 깁니다.", 413);
+    return error(req, "입력 메시지가 너무 깁니다.", 413, headers);
   }
 
   try {
@@ -62,8 +68,8 @@ export async function POST(req: Request) {
     });
 
     const data = await upstream.json();
-    return Response.json(data, { status: upstream.status, headers: noStoreHeaders });
+    return Response.json(data, { status: upstream.status, headers });
   } catch {
-    return error("AI 응답을 받아오지 못했습니다. 잠시 후 다시 시도해주세요.", 502);
+    return error(req, "AI 응답을 받아오지 못했습니다. 잠시 후 다시 시도해주세요.", 502, headers);
   }
 }
