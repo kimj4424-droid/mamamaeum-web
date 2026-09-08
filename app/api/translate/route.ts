@@ -4,6 +4,8 @@ import { enforceRequestLimit } from "../../lib/request-limit";
 const ANTHROPIC_MODEL = "claude-sonnet-5";
 const MAX_MESSAGE_CHARS = 30_000;
 const MAX_MESSAGES = 16;
+const MAX_TRANSLATE_REQUESTS_PER_HOUR = 30;
+const ONE_HOUR_MS = 60 * 60_000;
 
 function error(request: Request, message: string, status: number, headers = corsHeaders(request)) {
   return Response.json({ error: message }, { status, headers });
@@ -16,9 +18,14 @@ export function OPTIONS(request: Request) {
 
 export async function POST(req: Request) {
   const headers = corsHeaders(req);
-  const retryAfter = enforceRequestLimit(req, "translate", 12, 10 * 60_000);
+  const retryAfter = enforceRequestLimit(
+    req,
+    "translate",
+    MAX_TRANSLATE_REQUESTS_PER_HOUR,
+    ONE_HOUR_MS,
+  );
   if (retryAfter) {
-    return error(req, "요청이 너무 많습니다. 잠시 후 다시 시도해주세요.", 429, {
+    return error(req, "시간당 답변 생성 횟수를 모두 사용했어요. 잠시 후 다시 시도해주세요.", 429, {
       ...headers,
       "Retry-After": String(retryAfter),
     });
