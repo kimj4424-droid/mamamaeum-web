@@ -15,7 +15,8 @@
 ## 2단계 — 앱인토스 출시
 - [x] React/TypeScript와 Apps in Toss Web Framework 3.3 기반 WebView 번들 생성
 - [x] 토스 내비게이션, Safe Area, 클립보드 읽기·쓰기 권한 선언
-- [x] Vercel API에 momslator 토스 Origin 제한 CORS 적용 및 로컬 검증
+- [x] momslator 토스 Origin 제한 CORS 구현 및 로컬 검증
+- [ ] Vercel 프로덕션 API 배포 및 CORS 실응답 검증
 - [ ] 콘솔 QR 샌드박스에서 실제 AI 호출 검증
 - [ ] 앱인토스 콘솔 appName 대조, 샌드박스·실기기 테스트, 비게임 검수 제출
 
