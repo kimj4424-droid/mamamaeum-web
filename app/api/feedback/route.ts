@@ -1,6 +1,13 @@
 import { corsHeaders, isAllowedCorsOrigin } from "../../lib/cors";
 import { enforceRequestLimit } from "../../lib/request-limit";
 
+// Google Forms는 항목 ID가 바뀌면 기존 Vercel 환경 변수가 오래된 값을 가리킬 수 있습니다.
+// 현재 공개 피드백 폼의 항목 ID를 소스에서 명시해 제출 경로를 안정적으로 유지합니다.
+const GOOGLE_FORM_RESPONSE_URL = "https://docs.google.com/forms/d/e/1FAIpQLSfpJgKIu7-7C9MXV0LTIAgf3py6TKptsHCi6fRev6optUXdYQ/formResponse";
+const GOOGLE_FORM_ENTRY_CATEGORY = "2039242319";
+const GOOGLE_FORM_ENTRY_MESSAGE = "434700913";
+const GOOGLE_FORM_ENTRY_CONTACT = "1753195098";
+
 function error(request: Request, message: string, status: number, headers = corsHeaders(request)) {
   return Response.json({ error: message }, { status, headers });
 }
@@ -20,14 +27,6 @@ export async function POST(req: Request) {
     });
   }
 
-  const formUrl = process.env.GOOGLE_FORM_RESPONSE_URL;
-  const entryCategory = process.env.GOOGLE_FORM_ENTRY_CATEGORY;
-  const entryMessage = process.env.GOOGLE_FORM_ENTRY_MESSAGE;
-  const entryContact = process.env.GOOGLE_FORM_ENTRY_CONTACT;
-  if (!formUrl || !entryCategory || !entryMessage || !entryContact) {
-    return error(req, "피드백 설정이 준비되지 않았습니다.", 503, headers);
-  }
-
   let payload: { category?: unknown; message?: unknown; contact?: unknown };
   try {
     payload = await req.json();
@@ -44,12 +43,12 @@ export async function POST(req: Request) {
   }
 
   const body = new URLSearchParams();
-  body.set(`entry.${entryCategory}`, typeof category === "string" ? category.slice(0, 100) : "");
-  body.set(`entry.${entryMessage}`, message.trim());
-  body.set(`entry.${entryContact}`, typeof contact === "string" ? contact.trim() : "");
+  body.set(`entry.${GOOGLE_FORM_ENTRY_CATEGORY}`, typeof category === "string" ? category.slice(0, 100) : "");
+  body.set(`entry.${GOOGLE_FORM_ENTRY_MESSAGE}`, message.trim());
+  body.set(`entry.${GOOGLE_FORM_ENTRY_CONTACT}`, typeof contact === "string" ? contact.trim() : "");
 
   try {
-    const upstream = await fetch(formUrl, {
+    const upstream = await fetch(GOOGLE_FORM_RESPONSE_URL, {
       method: "POST",
       headers: { "content-type": "application/x-www-form-urlencoded" },
       cache: "no-store",
