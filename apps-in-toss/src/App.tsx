@@ -1,4 +1,4 @@
-import { Clipboard, graniteEvent } from '@apps-in-toss/web-framework'
+import { Clipboard, Device, graniteEvent } from '@apps-in-toss/web-framework'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 
@@ -70,6 +70,17 @@ async function writeClipboard(text: string) {
     await Clipboard.setText(text)
   } catch {
     await navigator.clipboard?.writeText?.(text)
+  }
+}
+
+async function openPrivacyPolicy(event: React.MouseEvent<HTMLAnchorElement>) {
+  event.preventDefault()
+  const url = `${API_BASE_URL}/privacy.html`
+  try {
+    await Device.openURL(url)
+  } catch {
+    // 앱인토스 브릿지가 없는 일반 브라우저에서는 현재 탭으로 이동합니다.
+    window.location.assign(url)
   }
 }
 
@@ -234,5 +245,5 @@ export default function App() {
     return <main className="page"><button className="backButton" onClick={goBack} aria-label="입력 화면으로 돌아가기">← 뒤로가기</button>{feedbackButton('result')}<header><p className="eyebrow">엄마마음</p><h1>이렇게 말해보는 건 어때요?</h1><p>{result.summary || '상대가 부담 없이 들을 수 있도록 여러 표현을 준비했어요.'}</p></header><p className="aiNotice" role="note">{AI_NOTICE}</p><section className="replyList">{result.replies?.map((reply, index) => <article className="replyCard" key={`${reply.tone}-${index}`}><span>{reply.tone}</span><p className="strategy">{reply.strategy}</p><p>{reply.text}</p><div className="expectedReaction"><strong>엄마는 이렇게 느낄 수 있어요</strong><p>{reply.expectedReaction}</p></div><button className="secondary" onClick={() => void writeClipboard(reply.text).then(() => setNotice('문장을 복사했어요.'))}>문장 복사</button></article>)}</section>{notice && <p className="notice">{notice}</p>}<button className="primary" onClick={() => void requestSuggestions()}>다른 표현 다시 받기</button><button className="textButton" onClick={goBack}>입력 내용 수정하기</button></main>
   }
 
-  return <main className="page"><button className="backButton" onClick={goBack} aria-label="이전 화면으로 돌아가기">← 뒤로가기</button>{feedbackButton('compose')}<header><p className="eyebrow">엄마마음</p><h1>부모님과의 대화,<br />조금 덜 어렵게</h1><p>말하기 어려운 마음을 부드러운 카톡 문장으로 정리해 드려요.</p></header><p className="aiNotice" role="note">{AI_NOTICE}</p><div className="tabs"><button className={mode === 'outbound' ? 'active' : ''} onClick={() => setMode('outbound')}>엄마에게 하고 싶은 말</button><button className={mode === 'inbound' ? 'active' : ''} onClick={() => setMode('inbound')}>받은 카톡 답장</button></div><section className="card"><label htmlFor="message">{title}</label><textarea id="message" value={message} maxLength={30000} onChange={(event) => setMessage(event.target.value)} placeholder={placeholder} /><div className="fieldFooter"><button className="secondary" onClick={() => void paste()}>클립보드에서 붙여넣기</button><span>{message.length.toLocaleString()} / 30,000</span></div></section>{notice && <p className="notice">{notice}</p>}<button className="primary" disabled={!canGenerate} onClick={() => void generate()}>답장 제안 받기</button><p className="limitNotice">AI 답변은 한 IP 주소 기준 시간당 최대 30회까지 받을 수 있어요.</p><p className="privacy">입력 내용은 답장 생성에만 사용하며 서비스에 저장하지 않아요. <a href={`${API_BASE_URL}/privacy.html`} target="_blank" rel="noreferrer">개인정보 처리방침</a></p></main>
+  return <main className="page"><button className="backButton" onClick={goBack} aria-label="이전 화면으로 돌아가기">← 뒤로가기</button>{feedbackButton('compose')}<header><p className="eyebrow">엄마마음</p><h1>부모님과의 대화,<br />조금 덜 어렵게</h1><p>말하기 어려운 마음을 부드러운 카톡 문장으로 정리해 드려요.</p></header><p className="aiNotice" role="note">{AI_NOTICE}</p><div className="tabs"><button className={mode === 'outbound' ? 'active' : ''} onClick={() => setMode('outbound')}>엄마에게 하고 싶은 말</button><button className={mode === 'inbound' ? 'active' : ''} onClick={() => setMode('inbound')}>받은 카톡 답장</button></div><section className="card"><label htmlFor="message">{title}</label><textarea id="message" value={message} maxLength={30000} onChange={(event) => setMessage(event.target.value)} placeholder={placeholder} /><div className="fieldFooter"><button className="secondary" onClick={() => void paste()}>클립보드에서 붙여넣기</button><span>{message.length.toLocaleString()} / 30,000</span></div></section>{notice && <p className="notice">{notice}</p>}<button className="primary" disabled={!canGenerate} onClick={() => void generate()}>답장 제안 받기</button><p className="limitNotice">AI 답변은 한 IP 주소 기준 시간당 최대 30회까지 받을 수 있어요.</p><p className="privacy">입력 내용은 답장 생성에만 사용하며 서비스에 저장하지 않아요. <a href={`${API_BASE_URL}/privacy.html`} onClick={(event) => void openPrivacyPolicy(event)}>개인정보 처리방침</a></p></main>
 }
