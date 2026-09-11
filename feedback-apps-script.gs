@@ -2,6 +2,13 @@ function doPost(e) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('피드백')
     || SpreadsheetApp.getActiveSpreadsheet().insertSheet('피드백');
   const data = JSON.parse(e && e.postData && e.postData.contents || '{}');
+  const expectedSecret = PropertiesService.getScriptProperties().getProperty('FEEDBACK_WEB_APP_SECRET');
+
+  if (!expectedSecret || data.secret !== expectedSecret) {
+    return ContentService
+      .createTextOutput(JSON.stringify({ ok: false, error: 'unauthorized' }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 
   if (!data.message || typeof data.message !== 'string') {
     return ContentService
