@@ -1,12 +1,9 @@
 import { corsHeaders, isAllowedCorsOrigin } from "../../lib/cors";
 import { enforceRequestLimit } from "../../lib/request-limit";
 
-// Google Forms는 항목 ID가 바뀌면 기존 Vercel 환경 변수가 오래된 값을 가리킬 수 있습니다.
-// 현재 공개 피드백 폼의 항목 ID를 소스에서 명시해 제출 경로를 안정적으로 유지합니다.
-const GOOGLE_FORM_RESPONSE_URL = "https://docs.google.com/forms/d/e/1FAIpQLSfpJgKIu7-7C9MXV0LTIAgf3py6TKptsHCi6fRev6optUXdYQ/formResponse";
-const GOOGLE_FORM_ENTRY_CATEGORY = "2039242319";
-const GOOGLE_FORM_ENTRY_MESSAGE = "434700913";
-const GOOGLE_FORM_ENTRY_CONTACT = "1753195098";
+// Google Forms 중계는 양식 제출 트리거가 발생하지 않을 수 있어, 시트와 메일을 함께
+// 처리하는 Apps Script 웹 앱으로 직접 전달합니다.
+const FEEDBACK_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzxclI4FXiziUEu7FOWMuNVq46WrTWuhsDUP3TJmXh6Bee-dwMrCytsXBe6oI9Uip5Kqg/exec";
 
 function error(request: Request, message: string, status: number, headers = corsHeaders(request)) {
   return Response.json({ error: message }, { status, headers });
@@ -42,17 +39,20 @@ export async function POST(req: Request) {
     return error(req, "입력 내용이 너무 깁니다.", 413, headers);
   }
 
-  const body = new URLSearchParams();
-  body.set(`entry.${GOOGLE_FORM_ENTRY_CATEGORY}`, typeof category === "string" ? category.slice(0, 100) : "");
-  body.set(`entry.${GOOGLE_FORM_ENTRY_MESSAGE}`, message.trim());
-  body.set(`entry.${GOOGLE_FORM_ENTRY_CONTACT}`, typeof contact === "string" ? contact.trim() : "");
+  const body = JSON.stringify({
+    timestamp: new Date().toISOString(),
+    category: typeof category === "string" ? category.slice(0, 100) : "",
+    message: message.trim(),
+    contact: typeof contact === "string" ? contact.trim() : "",
+    userAgent: req.headers.get("user-agent") || "",
+  });
 
   try {
-    const upstream = await fetch(GOOGLE_FORM_RESPONSE_URL, {
+    const upstream = await fetch(FEEDBACK_WEB_APP_URL, {
       method: "POST",
-      headers: { "content-type": "application/x-www-form-urlencoded" },
+      headers: { "content-type": "application/json" },
       cache: "no-store",
-      body: body.toString(),
+      body,
     });
 
     if (!upstream.ok) return error(req, "저장에 실패했습니다.", 502, headers);
