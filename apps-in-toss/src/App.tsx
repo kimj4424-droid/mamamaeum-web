@@ -99,6 +99,9 @@ export default function App() {
   const canGenerate = message.trim().length > 0 && message.length <= 30000
 
   useEffect(() => {
+    // 최초 화면에서는 토스의 기본 뒤로가기 동작이 미니앱을 종료하게 둡니다.
+    if (screen === 'compose') return
+
     const unsubscribe = graniteEvent.addEventListener('backEvent', {
       onEvent: goBack,
     })
