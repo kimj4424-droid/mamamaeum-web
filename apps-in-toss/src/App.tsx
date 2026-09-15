@@ -1,4 +1,4 @@
-import { Clipboard, Device, graniteEvent } from '@apps-in-toss/web-framework'
+import { Clipboard, Device, graniteEvent, Screen } from '@apps-in-toss/web-framework'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 
@@ -99,11 +99,14 @@ export default function App() {
   const canGenerate = message.trim().length > 0 && message.length <= 30000
 
   useEffect(() => {
-    // 최초 화면에서는 토스의 기본 뒤로가기 동작이 미니앱을 종료하게 둡니다.
-    if (screen === 'compose') return
-
     const unsubscribe = graniteEvent.addEventListener('backEvent', {
-      onEvent: goBack,
+      onEvent: () => {
+        if (screen === 'compose') {
+          void closeMiniApp()
+          return
+        }
+        goBack()
+      },
     })
     return unsubscribe
   }, [screen])
@@ -173,11 +176,16 @@ export default function App() {
       setScreen(feedbackReturnScreen === 'loading' ? 'compose' : feedbackReturnScreen)
       return
     }
-    if (screen === 'compose') {
-      window.history.back()
-      return
-    }
     setScreen('compose')
+  }
+
+  async function closeMiniApp() {
+    try {
+      await Screen.close()
+    } catch {
+      // 일반 브라우저 미리보기에서는 이전 페이지로 돌아갑니다.
+      window.history.back()
+    }
   }
 
   function openFeedback(origin: Exclude<Screen, 'feedback'>) {

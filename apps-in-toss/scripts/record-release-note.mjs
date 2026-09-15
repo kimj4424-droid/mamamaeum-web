@@ -18,8 +18,18 @@ let commitId = 'uncommitted'
 let changeSummary = '앱인토스 번들을 갱신했습니다.'
 
 try {
-  commitId = execFileSync('git', ['-C', appDirectory, 'rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).trim() || commitId
-  changeSummary = execFileSync('git', ['-C', appDirectory, 'log', '-1', '--format=%s'], { encoding: 'utf8' }).trim() || changeSummary
+  // AIT에 실제 포함되는 앱 소스의 마지막 변경만 메모합니다.
+  // 자동 메모 설정 자체의 커밋은 출시 변경으로 중복 기록하지 않습니다.
+  const sourceCommit = execFileSync(
+    'git',
+    ['-C', appDirectory, 'log', '-1', '--format=%h%x09%s', '--', 'src', 'apps-in-toss.config.ts'],
+    { encoding: 'utf8' },
+  ).trim()
+  if (sourceCommit) {
+    const [id, summary] = sourceCommit.split('\t', 2)
+    commitId = id || commitId
+    changeSummary = summary || changeSummary
+  }
 } catch {
   // Git 정보를 읽을 수 없는 환경에서도 번들 생성은 막지 않습니다.
 }
