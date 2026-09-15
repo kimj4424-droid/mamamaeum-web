@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build && ait build",
+    "postbuild": "node scripts/record-release-note.mjs",
     "bundle": "vite build && ait build",
+    "postbundle": "node scripts/record-release-note.mjs",
     "deploy": "ait deploy",
     "preview": "vite preview"
   },

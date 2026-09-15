@@ -10,7 +10,7 @@ npm run dev
 npm run build
 ```
 
-`npm run build`는 Vite 산출물(`dist`)과 앱인토스 업로드 파일(`momslator.ait`)을 생성합니다. `.ait` 파일은 Git에 저장하지 않습니다.
+`npm run build`는 Vite 산출물(`dist`)과 앱인토스 업로드 파일(`momslator.ait`)을 생성합니다. 이어서 최신 Git 커밋을 기준으로 수정 사항을 `RELEASE_NOTES.md`에 한 줄로 기록합니다. 같은 변경을 다시 빌드해도 중복 기록하지 않습니다. `.ait` 파일은 Git에 저장하지 않습니다.
 
 ## 콘솔에 올리기 전 확인
 
