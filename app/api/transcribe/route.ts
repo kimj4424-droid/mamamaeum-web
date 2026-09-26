@@ -59,7 +59,8 @@ export async function POST(request: Request) {
   if (!(audio instanceof File)) return error(request, "오디오 파일이 필요합니다.", 400, headers);
   if (!audio.size) return error(request, "녹음된 내용이 없습니다.", 400, headers);
   if (audio.size > MAX_AUDIO_BYTES) return error(request, "음성 파일은 10MB 이하만 전송할 수 있습니다.", 413, headers);
-  if (audio.type && !SUPPORTED_AUDIO_TYPES.has(audio.type)) {
+  const audioType = audio.type.split(";")[0].trim().toLowerCase();
+  if (audioType && !SUPPORTED_AUDIO_TYPES.has(audioType)) {
     return error(request, "지원하지 않는 오디오 형식입니다.", 415, headers);
   }
 
@@ -79,13 +80,18 @@ export async function POST(request: Request) {
     });
     const data = await upstream.json().catch(() => null);
     if (!upstream.ok) {
+      const rawCode = data?.error?.code;
+      const code = typeof rawCode === "string" && /^[a-zA-Z0-9_]{1,80}$/.test(rawCode)
+        ? rawCode
+        : "transcription_provider_error";
       console.error("OpenAI transcription request failed", {
         status: upstream.status,
-        code: data && typeof data === "object" && "error" in data && typeof data.error === "object" && data.error && "code" in data.error
-          ? data.error.code
-          : undefined,
+        code,
       });
-      return error(request, "음성을 텍스트로 바꾸지 못했습니다.", upstream.status >= 500 ? 502 : upstream.status, headers);
+      return Response.json({ error: "음성을 텍스트로 바꾸지 못했습니다.", code }, {
+        status: upstream.status >= 500 ? 502 : upstream.status,
+        headers,
+      });
     }
     if (!data || typeof data.text !== "string") return error(request, "음성 인식 결과 형식이 올바르지 않습니다.", 502, headers);
     return Response.json({ text: data.text }, { headers });
