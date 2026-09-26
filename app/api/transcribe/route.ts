@@ -39,7 +39,8 @@ export async function POST(request: Request) {
     });
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  // 기존 Vercel 설정의 키 이름도 지원해, 배포 후 바로 음성 인식을 사용할 수 있게 합니다.
+  const apiKey = process.env.OPENAI_API_KEY || process.env.STT_api_Key;
   if (!apiKey) return error(request, "음성 인식 설정이 준비되지 않았습니다.", 503, headers);
 
   const contentType = request.headers.get("content-type") || "";
