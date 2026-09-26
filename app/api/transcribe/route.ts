@@ -40,7 +40,7 @@ export async function POST(request: Request) {
   }
 
   // 기존 Vercel 설정의 키 이름도 지원해, 배포 후 바로 음성 인식을 사용할 수 있게 합니다.
-  const apiKey = process.env.OPENAI_API_KEY || process.env.STT_api_Key;
+  const apiKey = (process.env.OPENAI_API_KEY || process.env.STT_api_Key || "").trim();
   if (!apiKey) return error(request, "음성 인식 설정이 준비되지 않았습니다.", 503, headers);
 
   const contentType = request.headers.get("content-type") || "";
@@ -66,7 +66,7 @@ export async function POST(request: Request) {
   const upstreamForm = new FormData();
   upstreamForm.set("file", audio, audio.name || "recording.webm");
   upstreamForm.set("model", "gpt-transcribe");
-  upstreamForm.append("languages[]", "ko");
+  upstreamForm.set("language", "ko");
   upstreamForm.set("response_format", "json");
 
   try {
@@ -77,7 +77,15 @@ export async function POST(request: Request) {
       body: upstreamForm,
     });
     const data = await upstream.json().catch(() => null);
-    if (!upstream.ok) return error(request, "음성을 텍스트로 바꾸지 못했습니다.", upstream.status >= 500 ? 502 : upstream.status, headers);
+    if (!upstream.ok) {
+      console.error("OpenAI transcription request failed", {
+        status: upstream.status,
+        code: data && typeof data === "object" && "error" in data && typeof data.error === "object" && data.error && "code" in data.error
+          ? data.error.code
+          : undefined,
+      });
+      return error(request, "음성을 텍스트로 바꾸지 못했습니다.", upstream.status >= 500 ? 502 : upstream.status, headers);
+    }
     if (!data || typeof data.text !== "string") return error(request, "음성 인식 결과 형식이 올바르지 않습니다.", 502, headers);
     return Response.json({ text: data.text }, { headers });
   } catch {
