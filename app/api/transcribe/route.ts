@@ -65,7 +65,8 @@ export async function POST(request: Request) {
 
   const upstreamForm = new FormData();
   upstreamForm.set("file", audio, audio.name || "recording.webm");
-  upstreamForm.set("model", "gpt-transcribe");
+  // /audio/transcriptions에서 지원되는 범용·저비용 전사 모델입니다.
+  upstreamForm.set("model", "gpt-4o-mini-transcribe");
   upstreamForm.set("language", "ko");
   upstreamForm.set("response_format", "json");
 
