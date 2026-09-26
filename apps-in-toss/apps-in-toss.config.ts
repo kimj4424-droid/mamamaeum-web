@@ -7,6 +7,7 @@ export default defineConfig({
   permissions: [
     { name: 'clipboard', access: 'read' },
     { name: 'clipboard', access: 'write' },
+    { name: 'microphone', access: 'access' },
   ],
   navigationBar: {
     withBackButton: true,

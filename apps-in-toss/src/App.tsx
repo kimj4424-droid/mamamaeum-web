@@ -1,4 +1,4 @@
-import { Clipboard, Device, graniteEvent, Screen } from '@apps-in-toss/web-framework'
+import { Analytics, Clipboard, Device, graniteEvent, Screen } from '@apps-in-toss/web-framework'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import './App.css'
 
@@ -90,9 +90,15 @@ export default function App() {
   const [message, setMessage] = useState('')
   const [result, setResult] = useState<ApiResult | null>(null)
   const [notice, setNotice] = useState('')
+  const [recording, setRecording] = useState(false)
+  const [transcribing, setTranscribing] = useState(false)
+  const [recordingSeconds, setRecordingSeconds] = useState(0)
   const [feedback, setFeedback] = useState<Feedback>({ category: '', message: '', contact: '', sending: false, sent: false, error: '' })
   const [feedbackReturnScreen, setFeedbackReturnScreen] = useState<Exclude<Screen, 'feedback'>>('compose')
   const requestController = useRef<AbortController | null>(null)
+  const recorder = useRef<MediaRecorder | null>(null)
+  const recordingStream = useRef<MediaStream | null>(null)
+  const recordingChunks = useRef<Blob[]>([])
 
   const title = mode === 'inbound' ? '부모님이 보낸 카톡' : '엄마에게 하고 싶은 말'
   const placeholder = mode === 'inbound' ? '받은 메시지를 붙여넣어 주세요' : '아직 못 한 말을 편하게 적어 주세요'
@@ -111,6 +117,17 @@ export default function App() {
     return unsubscribe
   }, [screen])
 
+  useEffect(() => {
+    if (!recording) return
+    const timer = window.setInterval(() => setRecordingSeconds((seconds) => seconds + 1), 1000)
+    return () => window.clearInterval(timer)
+  }, [recording])
+
+  useEffect(() => () => {
+    recorder.current?.stop()
+    recordingStream.current?.getTracks().forEach((track) => track.stop())
+  }, [])
+
   const consented = useMemo(() => {
     try {
       return localStorage.getItem(CONSENT_KEY) === 'v1'
@@ -127,6 +144,101 @@ export default function App() {
     }
     setMessage(text.slice(0, 30000))
     setNotice('')
+  }
+
+  function finishRecording() {
+    recorder.current = null
+    recordingStream.current?.getTracks().forEach((track) => track.stop())
+    recordingStream.current = null
+    setRecording(false)
+  }
+
+  async function transcribeAudio(chunks: Blob[], mimeType: string) {
+    const recordingBlob = new Blob(chunks, { type: mimeType || 'audio/webm' })
+    if (!recordingBlob.size) {
+      setNotice('녹음된 내용이 없어요. 다시 말해 주세요.')
+      return
+    }
+
+    setTranscribing(true)
+    setNotice('음성을 글로 바꾸고 있어요…')
+    try {
+      const extension = mimeType.includes('mp4') ? 'm4a' : mimeType.includes('ogg') ? 'ogg' : 'webm'
+      const formData = new FormData()
+      formData.append('audio', recordingBlob, `recording.${extension}`)
+      const response = await fetch(`${API_BASE_URL}/api/transcribe`, { method: 'POST', body: formData })
+      const payload = await response.json().catch(() => null)
+      if (!response.ok) {
+        const message = response.status === 404
+          ? '음성 입력 기능을 준비 중이에요. 잠시 후 앱을 다시 열어 주세요.'
+          : response.status === 413
+            ? '녹음 시간이 너무 길어요. 짧게 나누어 다시 녹음해 주세요.'
+            : response.status === 429
+              ? '음성 입력은 잠시 후 다시 시도할 수 있어요.'
+              : response.status === 503
+                ? '음성 인식 설정을 준비 중이에요. 잠시 후 다시 시도해 주세요.'
+                : typeof payload?.error === 'string'
+                  ? payload.error
+                  : '음성을 텍스트로 바꾸지 못했어요. 잠시 후 다시 시도해 주세요.'
+        setNotice(message)
+        return
+      }
+      if (typeof payload?.text !== 'string') throw new Error('transcription-failed')
+
+      const text = payload.text.trim()
+      if (!text) {
+        setNotice('음성을 인식하지 못했어요. 조금 더 크게 말한 뒤 다시 시도해 주세요.')
+        return
+      }
+      setMessage((current) => `${current}${current.trim() ? '\n' : ''}${text}`.slice(0, 30000))
+      setNotice('음성을 텍스트로 입력했어요.')
+    } catch {
+      setNotice('음성을 텍스트로 바꾸지 못했어요. 잠시 후 다시 시도해 주세요.')
+    } finally {
+      setTranscribing(false)
+    }
+  }
+
+  async function toggleRecording() {
+    if (transcribing) return
+    if (recorder.current?.state === 'recording') {
+      recorder.current.stop()
+      return
+    }
+
+    if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder) {
+      setNotice('이 기기에서는 음성 녹음을 지원하지 않아요.')
+      return
+    }
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const preferredType = ['audio/webm;codecs=opus', 'audio/webm', 'audio/mp4'].find((type) => MediaRecorder.isTypeSupported(type))
+      const mediaRecorder = preferredType ? new MediaRecorder(stream, { mimeType: preferredType }) : new MediaRecorder(stream)
+      recordingStream.current = stream
+      recordingChunks.current = []
+      mediaRecorder.addEventListener('dataavailable', (event) => {
+        if (event.data.size) recordingChunks.current.push(event.data)
+      })
+      mediaRecorder.addEventListener('stop', () => {
+        const chunks = recordingChunks.current
+        const mimeType = mediaRecorder.mimeType
+        recordingChunks.current = []
+        finishRecording()
+        void transcribeAudio(chunks, mimeType)
+      }, { once: true })
+      mediaRecorder.addEventListener('error', () => {
+        finishRecording()
+        setNotice('녹음을 시작하지 못했어요. 마이크 권한을 확인해 주세요.')
+      }, { once: true })
+      recorder.current = mediaRecorder
+      setRecordingSeconds(0)
+      setNotice('녹음 중이에요. 버튼을 한 번 더 누르면 텍스트로 바꿔 드려요.')
+      mediaRecorder.start()
+      setRecording(true)
+    } catch {
+      setNotice('마이크를 사용할 수 없어요. 권한을 허용한 뒤 다시 시도해 주세요.')
+    }
   }
 
   async function requestSuggestions() {
@@ -166,6 +278,13 @@ export default function App() {
     } finally {
       if (requestController.current === controller) requestController.current = null
     }
+  }
+
+  function copyReply(text: string) {
+    void writeClipboard(text).then(() => {
+      void Analytics.log({ log_name: 'reply_copy_success', log_type: 'event', params: {} }).catch(() => undefined)
+      setNotice('문장을 복사했어요.')
+    })
   }
 
   function goBack() {
@@ -245,7 +364,7 @@ export default function App() {
   }
 
   if (screen === 'consent') {
-    return <main className="page">{feedbackButton('consent')}<section className="card"><p className="eyebrow">AI 처리 안내</p><h1>답장을 만들기 전에 확인해 주세요</h1><p>입력한 내용은 답장 제안을 만들기 위해 엄마마음 서버를 거쳐 Anthropic AI API로 전송됩니다. 서비스는 원문과 결과를 별도로 저장하지 않지만, AI 제공자는 기본 정책에 따라 입력과 출력을 최대 30일 보관할 수 있습니다.</p><p className="muted">이름, 연락처, 주소, 금융정보 등 불필요한 개인정보는 가리고 입력해 주세요.</p></section><p className="aiNotice" role="note">{AI_NOTICE}</p><button className="primary" onClick={allowAiProcessing}>동의하고 답장 만들기</button></main>
+    return <main className="page">{feedbackButton('consent')}<section className="card"><p className="eyebrow">AI 처리 안내</p><h1>답장을 만들기 전에 확인해 주세요</h1><p>입력한 내용은 답장 제안을 만들기 위해 엄마마음 서버를 거쳐 Anthropic AI API로 전송됩니다. 녹음 버튼으로 입력한 음성은 텍스트 변환을 위해 OpenAI API로 전송됩니다. 서비스는 원문·녹음·결과를 별도로 저장하지 않지만, AI 제공자는 각 기본 정책에 따라 데이터를 보관할 수 있습니다.</p><p className="muted">이름, 연락처, 주소, 금융정보 등 불필요한 개인정보는 가리고 입력해 주세요.</p></section><p className="aiNotice" role="note">{AI_NOTICE}</p><button className="primary" onClick={allowAiProcessing}>동의하고 답장 만들기</button></main>
   }
 
   if (screen === 'loading') {
@@ -253,8 +372,8 @@ export default function App() {
   }
 
   if (screen === 'result' && result) {
-    return <main className="page">{feedbackButton('result')}<header><p className="eyebrow">엄마마음</p><h1>이렇게 말해보는 건 어때요?</h1><p>{result.summary || '상대가 부담 없이 들을 수 있도록 여러 표현을 준비했어요.'}</p></header><p className="aiNotice" role="note">{AI_NOTICE}</p><section className="replyList">{result.replies?.map((reply, index) => <article className="replyCard" key={`${reply.tone}-${index}`}><span>{reply.tone}</span><p className="strategy">{reply.strategy}</p><p>{reply.text}</p><div className="expectedReaction"><strong>엄마는 이렇게 느낄 수 있어요</strong><p>{reply.expectedReaction}</p></div><button className="secondary" onClick={() => void writeClipboard(reply.text).then(() => setNotice('문장을 복사했어요.'))}>문장 복사</button></article>)}</section>{notice && <p className="notice">{notice}</p>}<button className="primary" onClick={() => void requestSuggestions()}>다른 표현 다시 받기</button><button className="textButton" onClick={goBack}>입력 내용 수정하기</button></main>
+    return <main className="page">{feedbackButton('result')}<header><p className="eyebrow">엄마마음</p><h1>이렇게 말해보는 건 어때요?</h1><p>{result.summary || '상대가 부담 없이 들을 수 있도록 여러 표현을 준비했어요.'}</p></header><p className="aiNotice" role="note">{AI_NOTICE}</p><section className="replyList">{result.replies?.map((reply, index) => <article className="replyCard" key={`${reply.tone}-${index}`}><span>{reply.tone}</span><p className="strategy">{reply.strategy}</p><p>{reply.text}</p><div className="expectedReaction"><strong>엄마는 이렇게 느낄 수 있어요</strong><p>{reply.expectedReaction}</p></div><button className="secondary" onClick={() => copyReply(reply.text)}>문장 복사</button></article>)}</section>{notice && <p className="notice">{notice}</p>}<button className="primary" onClick={() => void requestSuggestions()}>다른 표현 다시 받기</button><button className="textButton" onClick={goBack}>입력 내용 수정하기</button></main>
   }
 
-  return <main className="page">{feedbackButton('compose')}<header><p className="eyebrow">엄마마음</p><h1>부모님과의 대화,<br />조금 덜 어렵게</h1><p>말하기 어려운 마음을 부드러운 카톡 문장으로 정리해 드려요.</p></header><p className="aiNotice" role="note">{AI_NOTICE}</p><div className="tabs"><button className={mode === 'outbound' ? 'active' : ''} onClick={() => setMode('outbound')}>엄마에게 하고 싶은 말</button><button className={mode === 'inbound' ? 'active' : ''} onClick={() => setMode('inbound')}>받은 카톡 답장</button></div><section className="card"><label htmlFor="message">{title}</label><textarea id="message" value={message} maxLength={30000} onChange={(event) => setMessage(event.target.value)} placeholder={placeholder} /><div className="fieldFooter"><button className="secondary" onClick={() => void paste()}>클립보드에서 붙여넣기</button><span>{message.length.toLocaleString()} / 30,000</span></div></section>{notice && <p className="notice">{notice}</p>}<button className="primary" disabled={!canGenerate} onClick={() => void generate()}>답장 제안 받기</button><p className="limitNotice">AI 답변은 한 IP 주소 기준 시간당 최대 30회까지 받을 수 있어요.</p><p className="privacy">입력 내용은 답장 생성에만 사용하며 서비스에 저장하지 않아요. <a href={`${API_BASE_URL}/privacy.html`} onClick={(event) => void openPrivacyPolicy(event)}>개인정보 처리방침</a></p></main>
+  return <main className="page">{feedbackButton('compose')}<header><p className="eyebrow">엄마마음</p><h1>부모님과의 대화,<br />조금 덜 어렵게</h1><p>말하기 어려운 마음을 부드러운 카톡 문장으로 정리해 드려요.</p></header><p className="aiNotice" role="note">{AI_NOTICE}</p><div className="tabs"><button className={mode === 'outbound' ? 'active' : ''} onClick={() => setMode('outbound')}>엄마에게 하고 싶은 말</button><button className={mode === 'inbound' ? 'active' : ''} onClick={() => setMode('inbound')}>받은 카톡 답장</button></div><section className="card"><label htmlFor="message">{title}</label><textarea id="message" value={message} maxLength={30000} onChange={(event) => setMessage(event.target.value)} placeholder={placeholder} /><div className="fieldFooter"><button className="secondary" onClick={() => void paste()}>클립보드에서 붙여넣기</button><div className="inputTools"><span>{message.length.toLocaleString()} / 30,000</span><button className={`recordButton${recording ? ' recording' : ''}${transcribing ? ' transcribing' : ''}`} type="button" onClick={() => void toggleRecording()} disabled={transcribing} aria-label={recording ? '녹음 중지' : '음성 녹음 시작'} aria-pressed={recording} title={recording ? '녹음 중지' : '음성 녹음'}><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="3" width="8" height="12" rx="4" /><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8" /></svg><span className="srOnly">{recording ? '녹음 중지' : '음성 녹음 시작'}</span></button>{recording && <span className="recordingTime">{String(Math.floor(recordingSeconds / 60)).padStart(2, '0')}:{String(recordingSeconds % 60).padStart(2, '0')}</span>}</div></div></section>{notice && <p className="notice">{notice}</p>}<button className="primary" disabled={!canGenerate} onClick={() => void generate()}>답장 제안 받기</button><p className="limitNotice">AI 답변은 한 IP 주소 기준 시간당 최대 30회까지 받을 수 있어요.</p><p className="privacy">입력 내용은 답장 생성에만 사용하며 서비스에 저장하지 않아요. <a href={`${API_BASE_URL}/privacy.html`} onClick={(event) => void openPrivacyPolicy(event)}>개인정보 처리방침</a></p></main>
 }
