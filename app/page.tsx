@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import MamamaeumClient from "./MamamaeumClient";
 
 export default function Home() {
-  redirect("/mamamaeum.html");
+  return <MamamaeumClient />;
 }
